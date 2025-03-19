@@ -24,7 +24,7 @@ library(tidyverse)
 # library(httr)
 # library(purrr)
 # library(extrafont)
-# library(patchwork)
+library(patchwork)
 # library(scico)
 # library(psych)
 ```
@@ -121,12 +121,14 @@ childpovrate15_hist <- ggplot() +
              key_glyph = "path", # this changes legend lines to be horizontal
              data = childpovrate15_lines) +
   
+  # set axis limits for later figure comparisons
+  xlim(0, childpovrate15_summary$max+5) +
   
   # use a minimal theme 
   theme_minimal() +
   
   # add a title
-  labs(title = "Distribution of Child Poverty Rates, 2015")
+  labs(title = "Distribution of National Child Poverty Rates, 2015")
 
 
 # display the figure
@@ -298,7 +300,7 @@ access_chpov_scatter
 
 ## D.2: Interpretation of initial results
 
-From the scatterplot, we can see evidence of some relationship between the percent of households with no vehicle and low store access (higher values on the x axis) and child poverty rates. That being said, there is a lot of variability in the data (focusing here on the data with `PCT_LACCESS_HHNV15 < 20`) and counties with high percentages of household without vehicles and store access (`PCT_LACCESS_HHNV15 > 20`) experience moderate rates of child poverty. The Pearson's correlation coefficent (`r round(correlation, 3)`) confirms this, as it shows a moderate linear relationship between the two variables. 
+From the scatterplot, we can see evidence of some relationship between the percent of households with no vehicle and low store access (higher values on the x axis) and child poverty rates. That being said, there is a lot of variability in the data (focusing here on the data with `PCT_LACCESS_HHNV15 < 20`) and counties with high percentages of household without vehicles and store access (`PCT_LACCESS_HHNV15 > 20`) experience moderate rates of child poverty. The Pearson's correlation coefficent (`r round(correlation, 3)`) confirms this, as it shows a moderate linear relationship between the two variables. One other factor not captured in this dataset is access and availability of public transit in the county. 
 
 
 
@@ -361,8 +363,63 @@ metro_access_chpov_scatter
 
 ```
 
-While the relationship remains variable for metro areas (Pearson's correlation coefficient  = `r round(metro_correlation, 3)`), there does appear to be a stronger correlation than in non-metro areas (Pearson's correlation coefficient  = `r round(non_metro_correlation, 3)`).
+While the relationship remains variable for metro areas (Pearson's correlation coefficient  = `r round(metro_correlation, 3)`), there does appear to be a stronger correlation than in non-metro areas (Pearson's correlation coefficient  = `r round(non_metro_correlation, 3)`). 
 
+
+# BONUS
+
+I live in North Carolina, so I'm interested in exploring child poverty rate patterns across the state. 
+
+```{r bonus, warning=FALSE, message = FALSE}
+
+# to start, create separate dataframe for NC
+nc_df <- food_env_full %>% 
+  
+  # filter to metro areas
+  filter(State == "NC")
+
+
+# lets create a dataframe where we can again plot the mean and median values
+nc_childpovrate15_lines <- nc_df %>% 
+  
+  # summarise using food_env_full, so no NA values present
+  summarise(mean = mean(CHILDPOVRATE15), # mean value
+            median = median(CHILDPOVRATE15) # median value
+  ) %>% 
+  
+  # gather into a long format
+  gather(key = "stat", value = "val")
+
+# I want to be able to compare directly to the national figure so I am going to set the x axis limits on this figure to be the same as the national figure
+
+# using ggplot2, we can create the histogram
+nc_childpovrate15_hist <- ggplot() +
+  # create histogram of values
+  geom_histogram(aes(x = CHILDPOVRATE15), 
+                 data = nc_df) + 
+  
+  # plot mean and median values, with different linetypes
+  geom_vline(aes(xintercept = val, linetype = stat), 
+             key_glyph = "path", # this changes legend lines to be horizontal
+             data = nc_childpovrate15_lines) +
+  
+  # same limits as national figure
+  xlim(0, childpovrate15_summary$max+5) +
+  
+  
+  # use a minimal theme 
+  theme_minimal() +
+  
+  # add a title
+  labs(title = "Distribution of NC Child Poverty Rates, 2015")
+
+
+# display the figure atop the national figure using the patchwork library
+nc_childpovrate15_hist/childpovrate15_hist
+
+
+
+```
 
 
 
