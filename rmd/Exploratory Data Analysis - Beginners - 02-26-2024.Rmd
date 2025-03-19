@@ -1,0 +1,504 @@
+---
+title: "Exploratory Data Analysis - Beginners"
+author: "Leah Rathbun"
+date: "2024-02-23"
+output: 
+  pdf_document: default
+---
+
+```{r setup, message=FALSE, warning=FALSE, include=FALSE}
+
+#Set up Rmarkdown defaults
+knitr::opts_chunk$set(echo = TRUE)
+options(knitr.duplicate.label = "allow")
+
+#Tinytex is needed for Rmarkdown to port to a PDF file
+#tinytex::install_tinytex(force=TRUE)
+```
+
+\newpage  
+
+# Adult Diabetes and Economic Factors
+
+This notebook analyzes data of adult diabetes rates at the county-level by socioeconomic markers such as metro areas, persistent poverty, and income.  We use the [Food Environment Atlas](https://www.ers.usda.gov/webdocs/DataFiles/80526/FoodEnviro nmentAtlas.xls
+) to create summary statistics, scatter plots, histograms,and correlations to draw conclusions about adult diabetes.  
+
+More information about the data can be found on the [USDA Economic Research Service](https://www.ers.usda.gov/data-products/food-environment-atlas/data-access-and-documentation-downloads/) website
+
+
+```{r, warning=FALSE, include=FALSE}
+
+# packages
+library(tidyverse)
+library(dplyr)
+library(httr)
+library(moments)
+library(scales)
+library(ggplot2)
+library(ggpp)
+library(readxl)
+library(expss)
+library(sf)
+library(httr)
+library(purrr)
+library(extrafont)
+library(patchwork)
+library(scico)
+library(psych)
+
+
+# Set workbook URL
+workbook_url <- 'https://www.ers.usda.gov/webdocs/DataFiles/80526/FoodEnvironmentAtlas.xls'
+
+# Get workbook as temporary excel file
+GET(workbook_url, write_disk(tf <- tempfile(fileext = ".xls")))
+
+#Determine the name of the worksheets in the Excel workbook
+excel_sheets(path = tf)
+
+#Select the list of worksheets to use for this exercise: ACCESS, STORES, RESTAURANTS, ASSISTANCE, INSECURITY, TAXES, LOCAL, HEALTH, and SOCIOECONOMIC
+sheets <- excel_sheets(path = tf)[5:13]
+
+# create list of dataframes for each sheet
+df_list <- lapply(setNames(sheets,sheets), function(x) read_excel(tf, sheet=x))
+
+# merge all dataframes into one
+# Reduce function removes duplicates that appeared from the left_join merging 
+df_atlas_new <- df_list %>% reduce(left_join, by = c('FIPS','State','County'))
+
+#List names type , count, and sample of all variables in dataset
+str(df_atlas_new)
+
+```
+\newpage  
+
+## National Diabetes Statistics in 2013
+
+First let's look at basic stats to get the national average before we create graphs.
+
+The summary function can be found in the base package and provides limited descriptive statitsics.  
+
+The physch package can also be used to obtain a more comprehensive list of descriptive statistics.  
+
+You can also use the tidyverse package to explore descriptive statistics. You will need to remove any values listed as NA before you can compute the statistics.  The na.omit function can be used for this. 
+```{r, warning=FALSE}
+
+summary(df_atlas_new$PCT_DIABETES_ADULTS13)
+
+describe(df_atlas_new$PCT_DIABETES_ADULTS13)
+
+#Calculating the summary statistics
+DIABETES<-na.omit(df_atlas_new$PCT_DIABETES_ADULTS13)
+summ <- df_atlas_new %>% 
+        summarize(n=length(DIABETES), min = min(DIABETES), max = max( DIABETES),
+                  mean = mean(DIABETES), median = median(DIABETES), 
+                  sd = sd(DIABETES), skewness=skewness(DIABETES), 
+                  kurtosis=kurtosis(DIABETES))
+
+#Round the values to integers   
+summ2<-round(summ,1)
+summ2
+
+```
+\newpage  
+
+## Scatterplots  
+
+A basic plot for a single variable does not provide useful information on its own.  As you can the values are plotted in the order that the data is found in the worksheet (i.e. by index number).
+```{r, warning=FALSE}
+plot(df_atlas_new$PCT_DIABETES_ADULTS13)
+
+```
+
+\newpage  
+  
+# Histograms - Question #1  
+
+Question #1:  
+Using the Food Environment Atlas, create a histogram of diabetes rates (PCT_DIABETES_ADULTS13) and add a reference line for the national mean.  
+
+Why is a  histogram better than a scatterplot in this case?  A histogram is a type of chart that shows the frequency distribution of data points across a continuous range of numerical values. It provides a graphical representation for how frequently certain values occur.  We must identify bin sizes or the number of bins to categorize the data into.  In this example we will use 50 bins to divide the data into.  
+
+You can add the summary statistics on to the plot and the counts for each bin.  
+
+```{r, warning=FALSE}
+#identify the data to use
+df_atlas_new %>%
+  #Use ggplot to create a plot
+  ggplot(aes(x=PCT_DIABETES_ADULTS13)) +
+  
+  #The geom_histogram function indicates that the type of plot to create is a histogram
+  #There will be 50 bins for the graph
+  geom_histogram(fill="lightblue",colour = "black",binwidth=1) +
+  
+  #Indicate where the title should sit on the graph
+  theme_light() + 
+  theme(plot.title=element_text(hjust=0.5)) + 
+  
+  #Create the title for the graph
+  labs(title = "Adult Diabetes Rates (2013) by County",) +
+  
+  #Added the median value to the graph as a vertical line, first we need to remove NA values
+  geom_vline(xintercept = median(na.omit(df_atlas_new$PCT_DIABETES_ADULTS13)),color="red") +
+  
+  #Added the mean value to the graph as a vertical line, first we need to remove NA values
+  geom_vline(xintercept = mean(na.omit(df_atlas_new$PCT_DIABETES_ADULTS13)),
+             linetype = "dashed",color="red") +   
+  
+  #Add the axes labels
+  xlab("Adults with Diabetes(%)") + 
+  ylab("NUmber of Counties")  +
+  
+  #Add a table of the summary statistics
+  geom_table_npc(data=summ2,label = list(summ2), npcx = 0.45, npcy = 1, 
+                 hjust = 0, vjust = 1, size=2) +
+  
+  #Add the counts for each bin
+      stat_bin(binwidth=1, geom='text', color='black', size=3, angle=85,
+           aes(label=..count..), position=position_stack(vjust=0.8)) 
+```
+
+\newpage  
+
+# Metro Area and persistent poverty - Question #2  
+
+Question 2:  
+Separate the data into groups by metro status (METRO13) and persistent-poverty status (PERPOV10). Using histograms, how do the distributions differ depending on whether the diabetes rates are for metro vs. non-metro areas, or for areas with/without persistent poverty?  
+
+Using tidyverse you can create a table of the confidence intervals for each group and combination.
+
+```{r, warning=FALSE}
+#Metro status
+MetroGroup<-df_atlas_new %>% 
+  #Remove records with NA
+  drop_na(PCT_DIABETES_ADULTS13) %>%
+  #Create the groups
+  group_by(METRO13) %>%
+  #Summarize the information for the confidence intervals
+  summarise(ci = list(enframe(Hmisc::smean.cl.normal(PCT_DIABETES_ADULTS13)))) %>% 
+  unnest %>% 
+  #Order the output
+  arrange(desc(METRO13)) %>% 
+  spread(name, value)
+print("Metro Status")
+MetroGroup
+
+#Persistent Poverty status
+PovertyGroup<-df_atlas_new %>% 
+  #Remove records with NA
+  drop_na(PCT_DIABETES_ADULTS13) %>%
+  #Create the groups
+  group_by(PERPOV10) %>%
+  #Summarize the information for the confidence intervals
+  summarise(ci = list(enframe(Hmisc::smean.cl.normal(PCT_DIABETES_ADULTS13)))) %>% 
+  unnest %>% 
+  #Order the output
+  arrange(desc(PERPOV10)) %>% 
+  spread(name, value)
+print("Persistent Poverty Status")
+PovertyGroup
+
+#Both groups combined
+BothGroups<-df_atlas_new %>% 
+  #Remove records with NA
+  drop_na(PCT_DIABETES_ADULTS13) %>%
+  #Create the groups
+  group_by(METRO13,PERPOV10) %>%
+  #Summarize the information for the confidence intervals
+  summarise(ci = list(enframe(Hmisc::smean.cl.normal(PCT_DIABETES_ADULTS13)))) %>% 
+  unnest %>% 
+  #Order the output
+  arrange(desc(METRO13)) %>% 
+  spread(name, value)
+print("Combined Status")
+BothGroups
+```
+
+\newpage  
+
+## Metro Group Histogram
+
+Do people who live in metropolitan areas have a higher rate of diabetes than those that do not?  
+
+Create histograms for each Metro group to explore. Adding a line to represent the mean value for each group.  
+
+```{r, warning=FALSE}
+
+df_atlas_new %>%
+  #Create the plot
+  ggplot(aes(x=PCT_DIABETES_ADULTS13, group=METRO13, fill=METRO13)) +
+  
+  #Make the plot a histogram
+  geom_histogram(show.legend=FALSE,bins=50) +
+  facet_grid(METRO13~ .,) + 
+  theme_bw() +
+  theme(plot.title=element_text(hjust=0.5)) + 
+  
+  #Add the title(s) to the plot
+  labs(title = "Adult Diabetes Rates (2013) by Metro Area",) +
+  xlab("Adults with Diabetes (%)") + 
+  ylab("Number of Counties") +
+  
+  #add separate lines to each chart for the mean value
+  geom_vline(data=filter(df_atlas_new, METRO13==1), 
+        aes(xintercept=MetroGroup$Mean[2]), colour="pink") +  
+  geom_vline(data=filter(df_atlas_new, METRO13==0), 
+        aes(xintercept=MetroGroup$Mean[1]), colour="pink") 
+
+```
+
+\newpage  
+
+## Persistent Poverty Group Histogram
+
+Do people in persistent poverty have higher diabetes rates?  
+
+PERPOV10 a socioeconomic variables that categorizes areas with high poverty:  Areas with a poverty rate of 20.0 percent or more for 4 consecutive time periods, about 10 years apart, spanning approximately 30 years.
+
+```{r, warning=FALSE}
+
+df_atlas_new %>%
+  #Create the plot
+  ggplot(aes(x=PCT_DIABETES_ADULTS13, group=PERPOV10, fill=PERPOV10)) +
+  
+  #Make the histogram
+  geom_histogram(show.legend=FALSE,bins=50) +
+  facet_grid(PERPOV10~ .,) + 
+  theme_bw() +
+  theme(plot.title=element_text(hjust=0.5)) + 
+  
+  #Add the title(s) to the plot
+  labs(title = "Adult Diabetes Rates (2013) by Persistent Poverty Level",) +
+  xlab("Adults with Diabetes(%)") + 
+  ylab("Number of Counties") +
+  
+  #add separate lines to each chart for the mean value
+  geom_vline(data=filter(df_atlas_new, PERPOV10==1), 
+             aes(xintercept=PovertyGroup$Mean[2]), colour="pink") +
+  geom_vline(data=filter(df_atlas_new, PERPOV10==0), 
+             aes(xintercept=PovertyGroup$Mean[1]), colour="pink") 
+
+```
+
+\newpage  
+
+## Metro & Poverty Interaction Histogram
+
+First let's create side by side histograms to look at the data
+
+```{r, warning=FALSE}
+# Make label function for metro areas
+metro_areas <- list("0"="Non-Metro Area","1"="Metro Area")
+metro_labeller <- function(variable,value){
+  return(metro_areas[value])
+}
+
+# Make label function for poverty areas
+poverty_areas <- list("0"="Without Persistent Poverty", 
+                      "1"="With Persistent Poverty")
+poverty_labeller <- function(variable,value){
+  return(poverty_areas[value])
+}
+
+df_atlas_new %>% 
+  #Create the plot
+  ggplot(aes(x=PCT_DIABETES_ADULTS13)) + 
+  
+  #Make the histogram
+  geom_histogram() + 
+  
+  #Run the label function
+  facet_grid(METRO13 ~ PERPOV10, labeller=labeller(METRO13 = metro_labeller, 
+              PERPOV10 = poverty_labeller) ) + 
+  
+  #Add the title(s) to the plot
+  xlab("Rates of Adult Diabetes ") + 
+  ylab("Number of counties") + 
+  labs(title = "Concentration of Adult Diabetes Rates by County (2013)",
+      subtitle="Metro and non-metro areas with or without persistent poverty")
+  df_atlas_new2=apply_labels(df_atlas_new, 
+      PERPOV10=c("Without Persistent Poverty"=0,"With Persistent Poverty"=1),
+      METRO13=c("Non-Metro Area"=0,"Metro Area"=1))
+  
+```
+
+\newpage  
+
+## Metro & Poverty Interaction Boxplot  
+
+Let's look at the data using a boxplot.  How does the combination of persistent poverty and Metro area affect diabetes rates?  
+
+```{r, warning=FALSE}
+
+#The ggplot2 package is needed to create a grouped boxplot
+library(ggplot2)
+
+#The group variables need to be set up as a factor datatype
+df_atlas_new$METRO13<-as.factor(df_atlas_new$METRO13)
+df_atlas_new$PERPOV10<-as.factor(df_atlas_new$PERPOV10)
+
+#Create the boxplots
+ggplot(df_atlas_new, aes(x=METRO13, y=PCT_DIABETES_ADULTS13, fill=PERPOV10)) + 
+    geom_boxplot() +
+  #Add the title(s) to the plot
+  xlab("Metro Group") + 
+  ylab("Adult Diabetes Rate") +
+  #Add legend title and colors
+  scale_fill_manual("Persistant Poverty Level",values=c("orange","blue")) +
+  #add data points
+  geom_point(position = position_jitterdodge(), alpha=0.3) 
+```
+
+\newpage  
+
+## ANOVA  
+
+We could use a two way ANOVA to see if there are any statistical differences for the groups.  And lastly conducting pairwise tests will allow us to understand which group combinations are different. The null hypothesis for this test is that the difference in the means is equal to zero.  
+
+```{r, warning=FALSE}
+# Two-way ANOVA with interaction
+mod <- aov(PCT_DIABETES_ADULTS13 ~ METRO13 * PERPOV10,data = df_atlas_new)
+
+# print ANOVA results
+print("2-way ANOVA")
+summary(mod)
+
+#Tukey test for comparisons
+print("Tukey Pairwise Tests")
+TukeyHSD(mod, conf.level=.95)
+
+```
+\newpage  
+  
+# Correlations - Question #3  
+
+Question #3:  
+The relationship does not look linear from the scatterplot. Take the log of median household income and recalculate the correlation. What happens?  
+
+Create the scatterplot. Create different colors for the dots based on the interaction between metro group and poverty group.  Add a linear regression line to assess the relationship. 
+
+```{r, warning=FALSE}
+
+df_atlas_new%>% 
+  #Create the graph
+  ggplot(aes(x =PCT_DIABETES_ADULTS13, y= MEDHHINC15, color=METRO13:PERPOV10)) +
+  #Make it a scatterplot
+  geom_point() +
+  
+  #Add the title(s) to the plot
+  labs(title = "Median Household Income vs. Adult Diabetes Rates (2013)") +
+  xlab("Adults with Diabetes(%)") + 
+  ylab("Median Household Income") +
+
+  #Add a linear regression line for each group
+  geom_smooth(method = "lm", fill = NA)
+```
+
+## Transformation
+
+Let's explore transforming the y-variable, median household income.  One common transformation is a log transformation.  In this exercise we will be workign with a log base 10 transformation.  
+
+First plot the data using a log scale for the y-axis.  
+
+```{r, warning=FALSE}
+
+df_atlas_new%>% 
+  #Create the graph
+  ggplot(aes(x =PCT_DIABETES_ADULTS13, y= MEDHHINC15, color=METRO13:PERPOV10)) +
+  #Make it a scatterplot
+  geom_point() +
+  
+  #Change the scale to log base 10
+  scale_y_continuous(trans='log10',labels = scales::comma) +
+
+  #Add the title(s) to the plot
+  labs(title = "Median Household Income vs. Adult Diabetes Rates (2013)",
+       subtitle="Group Interactions") +
+  xlab("Adults with Diabetes(%)") + 
+  ylab("Median Household Income") +
+
+  #Add a linear regression line for each group
+  geom_smooth(method = "lm", fill = NA)
+```
+
+\newpage  
+
+## Correlation Matrix  
+
+Now calculate the Pearson's correlation coefficient for the transformed variable and compare it to the non-transformed variable. The cor function requires a dataframe as input so you will need to create the matrix of data each time you run the function.  
+
+```{r, warning=FALSE}
+#Grab the variables to work with from the larger database and create
+
+#The untransformed variables
+Pearsons<-df_atlas_new %>% select(MEDHHINC15,PCT_DIABETES_ADULTS13)
+#Create the correlation matrices that omits NA/blank values from computation
+print("Untransformed Correlation Matrix")
+cor(na.omit(Pearsons))  
+
+#The transformed variables
+Pearsons$LogMEDHHINC15<-log10(Pearsons$MEDHHINC15)
+PearsonsLog<-Pearsons %>% select(LogMEDHHINC15,PCT_DIABETES_ADULTS13)
+#Create the correlation matrices that omits NA/blank values from computation
+print("Transformed Correlation Matrix")
+cor(na.omit(PearsonsLog))  
+
+#Both at the same time
+cor(na.omit(Pearsons))  
+
+```
+
+\newpage  
+
+# Metro Area and persistent poverty - Question #4  
+
+Question 4:  
+Is the relationship between diabetes rates and median household income affected by metro status?  
+
+Make a comparative scatterplot across the two groups of metro vs. non-metro counties. Color the dots by group and add a linear regression line for each group to assess trends.
+
+```{r, warning=FALSE}
+
+df_atlas_new%>% 
+  #Create the graph
+  ggplot(aes(x =PCT_DIABETES_ADULTS13, y= MEDHHINC15, color=METRO13)) +
+  #Make it a scatterplot
+  geom_point() +
+  
+  #Change the scale to log base 10
+  scale_y_continuous(trans='log10',labels = scales::comma) +
+
+  #Add the title(s) to the plot
+  labs(title = "Median Household Income vs. Adult Diabetes Rates (2013)",
+       subtitle="Metro and Non-Metro Areas") +
+  xlab("Adults with Diabetes(%)") + 
+  ylab("Median Household Income") +
+
+  #Add a linear regression line for each group
+  geom_smooth(method = "lm", fill = NA)
+
+```
+
+\newpage  
+
+## Correlation Matrix  
+
+Create the correlation matrix for each metro group, for both with and without the log transformed variable.
+
+```{r, warning=FALSE}
+#Create the log transformed values
+df_atlas_new$logMEDHHINC15<-log10(df_atlas_new$MEDHHINC15)
+
+#Correlation matrix that omits NA/blank values from computation without 
+#transformation
+df_atlas_new %>%
+  group_by(METRO13) %>%
+  summarize(cor=cor(MEDHHINC15,PCT_DIABETES_ADULTS13, use="pairwise.complete.obs"))
+
+#Correlation matrix that omits NA/blank values from computation with transformation
+df_atlas_new %>%
+  group_by(METRO13) %>%
+  summarize(cor=cor(logMEDHHINC15,PCT_DIABETES_ADULTS13,
+      use="pairwise.complete.obs"))
+
+```

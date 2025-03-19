@@ -1,0 +1,348 @@
+---
+title: "EDA Food Environment Atlas"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,warning = FALSE, message = FALSE) 
+ #
+```
+
+# Adult Diabetes and Economic Factors
+
+This notebook analyzes data of adult diabetes rates at the county-level by socioeconomic markers such as metro areas, persistent poverty, and income.  We use the Food Environment Atlas to create summary statistics, scatter plots, histograms,and correlations to draw conclusions about adult diabetes.
+
+
+```{r Packages&Dataset, include=FALSE}
+#install.packages("tidyverse")
+
+# Import tidyverse for data processing and more!
+#library(tidyverse)
+library(scales)
+library(dplyr)
+# Import ggplot2 for data viz
+library(ggplot2)
+library(sf)
+library(httr)
+library(purrr)
+library(readxl)
+library(extrafont)
+library(expss)
+library(patchwork)
+library(scico)
+
+sheets <- c("ACCESS",
+            "STORES",
+            "RESTAURANTS",
+            "ASSISTANCE",
+            "INSECURITY",
+            "TAXES",
+            "LOCAL",
+            "HEALTH",
+            "SOCIOECONOMIC")
+
+# Set workbook URL
+workbook_url <- 'https://www.ers.usda.gov/webdocs/DataFiles/80526/FoodEnvironmentAtlas.xls'
+
+# Get workbook as temporary excel file
+GET(workbook_url, write_disk(tf <- tempfile(fileext = ".xls")))
+
+
+# create list of dataframes for each sheet
+df_list <- lapply(setNames(sheets,sheets), function(x) read_excel(tf, sheet=x))
+
+# merge all dataframes into one
+# Reduce function removes duplicates that appeared from the left_join merging 
+df_atlas_new <- df_list %>% reduce(left_join, by = c('FIPS','State','County'))
+
+#List names type , count, and sample of all variables in dataset
+str(df_atlas_new)
+
+
+```
+
+## National Diabetes Statistics in 2013
+
+First let's look at basic stats to get the national average before we create graphs.  
+```{r DiabetesStats2013}
+#Note: To add additional code chucks: keyboard shortcut Ctrl + Alt + I 
+summary(df_atlas_new$PCT_DIABETES_ADULTS13)
+```
+
+
+## Plots  
+```{r PlotofPctDiabetes, echo=FALSE}
+plot(df_atlas_new$PCT_DIABETES_ADULTS13)
+
+```
+  
+## Better Plots  
+1. Using the Food Environment Atlas, create a graph of diabetes rates (PCT_DIABETES_ADULTS13) and add a reference line for the national mean.  
+  Why is a  histogram better than a scatterplot in this case?  We want to look at the frequency of occurrences of diabetes rates.  We can group rates into bins to show how many occurred in each bin. 
+
+```{r BetterPlots}
+
+df_atlas_new %>%
+  ggplot(
+  aes(x=PCT_DIABETES_ADULTS13)
+) +
+  geom_histogram(fill="#75b3ec",bins=50) +
+  theme_light() + 
+  theme(plot.title=element_text(hjust=0.5)) + 
+  labs(
+    title = "Adult Diabetes Rates (2013) by County",
+    ) +
+   geom_vline(xintercept = 11.24)+   #Added national average reference line
+  xlab("Adults with Diabetes(%)") + 
+  ylab("NUmber of Counties")
+```
+
+## Metro Area and persistent poverty  
+2. Separate the data into groups by metro status (METRO13) and persistent-poverty status (PERPOV10). Using histograms, how do the distributions differ depending on whether the diabetes rates are for metro vs. non-metro areas, or for areas with/without persistent poverty? 
+
+
+**Metro13**
+Metro13 is a socioeconomic variables that list metro vs non metro counties for 2013.
+Do people in metro or rural areas have higher diabetes rates?
+
+```{r MetroAreas and Diabetes}
+df_atlas_new%>%group_by(METRO13) %>%
+        summarise(Avg_metro_Diabetes= mean(PCT_DIABETES_ADULTS13, na.rm=TRUE)) %>%
+        arrange(desc(Avg_metro_Diabetes))
+
+```
+
+```{r MetroPlots}
+
+df_atlas_new %>%
+  ggplot(
+  aes(x=PCT_DIABETES_ADULTS13, group=METRO13, fill=METRO13)
+) +
+  geom_histogram(show.legend=FALSE,bins=50) +
+facet_grid(METRO13~ .,) + 
+  theme_bw() +
+  theme(plot.title=element_text(hjust=0.5)) + 
+  labs(
+    title = "Adult Diabetes Rates (2013) by Metro Area",
+    ) +
+     #Below is how to add separate line to each chart:  
+geom_vline(data=filter(df_atlas_new, METRO13==1), aes(xintercept=10.77), colour="pink") +  
+  geom_vline(data=filter(df_atlas_new, METRO13==0), aes(xintercept=11.51), colour="pink") +  
+  xlab("Adults with Diabetes(%)") + 
+  ylab("NUmber of Counties")
+
+
+
+```
+
+**Persistent Poverty**
+
+Do people in persistent poverty have higher diabetes rates?
+
+PERPOV10 a socioeconomic variables that categorizes areas with high poverty:  Areas with a poverty rate of 20.0 percent or more for 4 consecutive time periods, about 10 years apart, spanning approximately 30 years.
+
+```{r Poverty&Diabetes}
+df_atlas_new %>% group_by(PERPOV10) %>%
+        summarise(Avg_Pov_Diabetes= mean(PCT_DIABETES_ADULTS13, na.rm=TRUE))  %>%
+        arrange(desc(Avg_Pov_Diabetes))
+
+Povertytest<-df_atlas_new %>% group_by(PERPOV10) %>%
+  summarise(Avg_Pov_Diabetes= mean(PCT_DIABETES_ADULTS13, na.rm=TRUE))  
+```
+
+```{r PovertyPlots}
+
+df_atlas_new %>%
+  ggplot(
+  aes(x=PCT_DIABETES_ADULTS13, group=PERPOV10, fill=PERPOV10)
+) +
+  geom_histogram(show.legend=FALSE,bins=50) +
+facet_grid(PERPOV10~ .,) + 
+  theme_bw() +
+  theme(plot.title=element_text(hjust=0.5)) + 
+  labs(
+    title = "Adult Diabetes Rates (2013) by Persistent Poverty Level",
+    ) +
+  geom_vline(data=filter(df_atlas_new, PERPOV10==1), aes(xintercept=13.721), colour="pink") +  
+  geom_vline(data=filter(df_atlas_new, PERPOV10==0), aes(xintercept=10.92166), colour="pink") +  
+   
+  xlab("Adults with Diabetes(%)") + 
+  ylab("NUmber of Counties")
+
+
+
+```
+
+**Metro & Poverty** 
+
+How does the combination of persistent poverty and Metro area affect diabetes rates?  We could use a two way ANOVA to see if there are differences.
+```{r MetroAreas&Poverty}
+df_atlas_new%>%group_by(PERPOV10,METRO13) %>%
+        summarise(Avg_metro_Diabetes= mean(PCT_DIABETES_ADULTS13, na.rm=TRUE),
+                  .groups = 'drop') %>%
+        arrange(desc(Avg_metro_Diabetes))
+
+
+```
+
+
+
+## Median HH Income  
+Relationship between diabetes rates and median household income.  
+
+```{r histogram}
+df_atlas_new %>%
+  ggplot(
+  aes(x=MEDHHINC15)
+) +
+  geom_histogram(fill="#75b3ec",bins=50) +
+  theme_light() + 
+  theme(plot.title=element_text(hjust=0.5)) + 
+  labs(
+    title = "Median Household Incomes (2015) by County",
+    ) +
+   geom_vline(xintercept = 48611)+   #Added national average reference line
+  xlab("Median HH Income") + 
+  ylab("NUmber of Counties")
+```
+
+The log transformation reduces or removes the skewness of our original data.  
+
+```{r histogramLogTransformation}
+df_atlas_new$logofHH<-log(df_atlas_new$MEDHHINC15)
+summary(df_atlas_new$logofHH)
+
+df_atlas_new %>%
+  ggplot(
+  aes(x=logofHH)
+) +
+  geom_histogram(fill="#75b3ec",bins=50) +
+  theme_light() + 
+  theme(plot.title=element_text(hjust=0.5)) + 
+  labs(
+    title = "Median Household Incomes (2013) by County",
+    ) +
+   geom_vline(xintercept = 10.76)+   #Added national average reference line
+  xlab("Median HH Income") + 
+  ylab("NUmber of Counties")
+```
+
+
+#3. Take the correlation between diabetes rates and median household income (MEDHHINC15). Then, make a scatterplot to visualize the relationship.  
+
+```{r Correlations}
+
+
+new<-df_atlas_new%>% select(MEDHHINC15,logofHH,PCT_DIABETES_ADULTS13)
+
+#Correlation matrix that omits NA/blank values from computation
+cor(na.omit(new))  
+
+
+```
+
+
+```{r  Scatterplots}
+df_atlas_new%>% 
+  ggplot(
+    aes(x =PCT_DIABETES_ADULTS13, y= MEDHHINC15)) +
+ geom_point()
+
+
+df_atlas_new%>% 
+  ggplot(
+    aes(x =PCT_DIABETES_ADULTS13, y= MEDHHINC15, color=as.factor(PERPOV10))) +
+ geom_point()
+
+df_atlas_new%>% 
+  ggplot(
+    aes(x =PCT_DIABETES_ADULTS13, y= logofHH, color=as.factor(PERPOV10))) +
+ geom_point()
+
+df_atlas_new%>% 
+  ggplot(
+    aes(x =PCT_DIABETES_ADULTS13,y= MEDHHINC15, color=as.factor(METRO13))) +
+ geom_point()
+
+df_atlas_new%>% 
+  ggplot(
+    aes(x =PCT_DIABETES_ADULTS13, y=logofHH, color=as.factor(METRO13))) +
+ geom_point()
+```
+
+```{r}
+# Make labeller function for metro areas
+metro_areas <- list(
+  "0"="Non-Metro Area",
+  "1"="Metro Area"
+)
+metro_labeller <- function(variable,value){
+  return(metro_areas[value])
+}
+poverty_areas <- list(
+  "0"="Without Persistent Poverty",
+  "1"="With Persistent Poverty"
+)
+poverty_labeller <- function(variable,value){
+  return(poverty_areas[value])
+}
+
+df_atlas_new %>% 
+  ggplot(
+    aes(x=PCT_DIABETES_ADULTS13)
+  ) + 
+  geom_histogram() + 
+  facet_grid(METRO13 ~ PERPOV10, 
+             labeller=labeller(METRO13 = metro_labeller, 
+                               PERPOV10 = poverty_labeller)
+             ) + 
+  xlab("Rates of Adult Diabetes ") + 
+  ylab("Number of counties") + 
+  labs(title = "Concentration of Adult Diabetes Rates by County (2013)",
+       subtitle="Metro and non-metro areas with or without persistent poverty")
+
+
+df_atlas_new2=apply_labels(df_atlas_new,
+                            PERPOV10=c("Without Persistent Poverty"=0,"With Persistent Poverty"=1),
+                          METRO13=c("Non-Metro Area"=0,"Metro Area"=1))
+table(df_atlas_new2$METRO13, df_atlas_new2$PERPOV10)
+```
+
+
+
+#4. Is the relationship between diabetes rates and median household income affected by metro status?     
+  Make comparative scatter plots and calculate correlation coefficients across the two groups of metro vs. non-metro counties.
+  Would an ANOVA be appropriate to see if there are differences between the groups?
+
+
+```{r Correlation by MetroArea}
+#new<-df_atlas_new%>% select(MEDHHINC15,PCT_DIABETES_ADULTS13,METRO13)
+
+#Correlation matrix that omits NA/blank values from computation
+df_atlas_new2 %>%
+  group_by(METRO13) %>%
+  summarize(cor=cor(MEDHHINC15,PCT_DIABETES_ADULTS13, use="pairwise.complete.obs"))
+
+
+```
+```{r Scatterplot by Metro Area}
+
+df_atlas_new %>% 
+  ggplot(
+    aes(x=PCT_DIABETES_ADULTS13, y=MEDHHINC15)
+  ) + 
+ geom_point()+ 
+    facet_grid(METRO13~ ., 
+             labeller=labeller(METRO13 = metro_labeller)
+             ) + 
+  xlab("Diabetes Rates") + 
+  ylab("Median Household Income") + 
+  labs(title = "Adult Diabetes rates by Median Income",
+       subtitle="Metro and non-metro areas")
+```
+
+
