@@ -174,7 +174,7 @@ pct_lacess_hhnv15_hist <- ggplot() +
   theme_minimal() +
   
   # add a title
-  labs(title = "Distribution of Percentage of Households with Store and Vehicle Access")
+  labs(title = "Distribution of Percentage of Households with No Vehicle and Low Store Access")
 
 
 # display the histogram
@@ -191,7 +191,7 @@ pct_lacess_hhnv15_boxplot <- ggplot() +
   theme_minimal() +
   
   # add a title
-  labs(title = "Distribution of Percentage of Households with Store and Vehicle Access")
+  labs(title = "Distribution of Percentage of Households with No Vehicle and Low Store Access")
 
 
 # display the histogram
@@ -202,62 +202,109 @@ pct_lacess_hhnv15_boxplot
 
 ## C.2: Access by metro/non-metro status
 
-Adding more detail to our exploratory analysis, we will now look at whether the distribution of `PCT_LACCESS_HHNV15` differs between metro and non-metro areas.  
+Adding more detail to our exploratory analysis, we will now look at whether the distribution of `PCT_LACCESS_HHNV15` differs between metro and non-metro areas. It's not obvious to me what the differences are by looking at the histogram but the differences are clearer looking at the boxplots. Here we can see that households in non-metro areas are more likley to have no vehicle and lower access to stores, as you might expect.
 
 ```{r part_c_2, warning=FALSE, message = FALSE}
 
+# first, lets use Metro verus Non-metro instead of 1 and 0, respectively
+metro_labeller <- c(
+  `1` = "Metro",
+  `0` = "Non-metro"
+)
+
 # using ggplot2, we can create the histogram
-pct_lacess_hhnv15_hist <- ggplot() +
-  # create histogram of values
+pct_lacess_metro_hist <- ggplot() +
+  # create histogram of values 
   geom_histogram(aes(x = PCT_LACCESS_HHNV15), 
                  data = food_env_full) + 
   
-  # plot mean and median values, with different linetypes
-  geom_vline(aes(xintercept = val, linetype = stat), 
-             key_glyph = "path", # this changes legend lines to be horizontal
-             data = pct_lacess_hhnv15_lines) +
+  # split out by metro status
+  facet_grid(rows = vars(METRO13),
+             # use labeller object created above
+             labeller = as_labeller(metro_labeller)) +
+ 
   
   # use a minimal theme 
   theme_minimal() +
   
   # add a title
-  labs(title = "Distribution of Percentage of Households with Store and Vehicle Access")
+  labs(title = "Distribution of Percentage of Households with No Vehicle and Low Store Access")
+
+# display the faceted histogram
+pct_lacess_metro_hist
 
 
-# display the histogram
-pct_lacess_hhnv15_hist
-
-
-# similarly, using ggplot2, we can create the boxplot
-pct_lacess_hhnv15_boxplot <- ggplot() +
-  # create boxplot of values
+# using ggplot2, we can create the faceted boxplot
+pct_lacess_metro_boxplot <- ggplot() +
+  # create boxplot of values 
   geom_boxplot(aes(x = PCT_LACCESS_HHNV15), 
                  data = food_env_full) + 
   
+  # split out by metro status
+  facet_grid(rows = vars(METRO13),
+             # use labeller object created above
+             labeller = as_labeller(metro_labeller)) +
+ 
+  
   # use a minimal theme 
   theme_minimal() +
   
   # add a title
-  labs(title = "Distribution of Percentage of Households with Store and Vehicle Access")
+  labs(title = "Distribution of Percentage of Households with No Vehicle and Low Store Access")
 
-
-# display the histogram
-pct_lacess_hhnv15_boxplot
+# display the faceted boxplot
+pct_lacess_metro_boxplot
 
 ```
 
 
 
+# Part D: Exploring relationships
+
+Now that we have investigated the distribution of individual variables, we'll get to the more question-driven portion of the analyses and explore whether variables correlate with one another. For this section, we will look to see if there is a relationship between `PCT_LACCESS_HHNV15` and `CHILDPOVRATE15`. In other words, does access to vehicles and stores affect the child poverty rate in counties across the country?
+
+
+## D.1: Correlation and scatterplot
+To address this question, we will look at the statistical correlation between these variables, as well as a scatterplot to visualize the relationship. We will calculate the Pearson's correlation coefficient to measure the linear correlation between `PCT_LACCESS_HHNV15` and `CHILDPOVRATE15`. We will also show the relationship visually using a scatterplot.
+
+
+```{r part_d_1, warning=FALSE, message = FALSE}
+
+# calculate the correlation by specifying the two variables and Pearson as function inputs
+correlation <- cor(food_env_full$PCT_LACCESS_HHNV15,
+                   food_env_full$CHILDPOVRATE15,
+                   method = 'pearson')
+
+correlation
+
+# generate and view the scatterplot
+access_chpov_scatter <- ggplot() +
+  
+  # generate the points with access on the x-axis and child poverty on the y
+  geom_point(aes(x = PCT_LACCESS_HHNV15,
+                 y = CHILDPOVRATE15),
+             data = food_env_full) +
+  
+  # use a simple theme
+  theme_minimal() +
+  
+  # add a title
+  labs(title = "Relationship between Child Poverty and No Vehicle/Low Store Access")
+  
+access_chpov_scatter
+
+```
+
+
+## D.2: Interpretation of initial results
+
+From the scatterplot, we can see evidence of some relationship between the percent of households with no vehicle and low store access (higher values on the x axis) and child poverty rates. That being said, there is a lot of variability in the data (focusing here on the data with `PCT_LACCESS_HHNV15 < 20`) and counties with high percentages of household without vehicles and store access (`PCT_LACCESS_HHNV15 > 20`) experience moderate rates of child poverty. The Pearson's correlation coefficent (`r round(correlation, 3)`) confirms this, as it shows a moderate linear relationship between the two variables. 
 
 
 
+## D.3: Influence of metro status on the relationship
 
-
-
-
-
-
-
+As before, we will now explore whether 
 
 
 
