@@ -304,8 +304,64 @@ From the scatterplot, we can see evidence of some relationship between the perce
 
 ## D.3: Influence of metro status on the relationship
 
-As before, we will now explore whether 
+As before, we will now explore whether we can observe a difference when we consider counties within metro versus non-metro areas.
 
+```{r part_d_3, warning=FALSE, message = FALSE}
+
+# to start, create separate dataframes of metro and non-metro data
+metro_df <- food_env_full %>% 
+  
+  # filter to metro areas
+  filter(METRO13 == 1)
+
+non_metro_df <- food_env_full %>% 
+  
+  # filter to non-metro areas
+  filter(METRO13 == 0)
+
+
+# calculate the correlation by specifying the two variables and Pearson as function inputs by metro df
+metro_correlation <- cor(metro_df$PCT_LACCESS_HHNV15,
+                         metro_df$CHILDPOVRATE15,
+                         method = 'pearson')
+
+metro_correlation
+
+# calculate the correlation by specifying the two variables and Pearson as function inputs by metro df
+non_metro_correlation <- cor(non_metro_df$PCT_LACCESS_HHNV15,
+                             non_metro_df$CHILDPOVRATE15,
+                             method = 'pearson')
+
+non_metro_correlation
+
+# generate and view the scatterplot using the full dataset and the previously generated labeller
+metro_access_chpov_scatter <- ggplot() +
+  
+  # generate the points with access on the x-axis and child poverty on the y
+  geom_point(aes(x = PCT_LACCESS_HHNV15,
+                 y = CHILDPOVRATE15),
+             data = food_env_full) +
+  
+  # split out by metro status
+  facet_grid(rows = vars(METRO13),
+             # use labeller object created above
+             labeller = as_labeller(metro_labeller)) +
+  
+  
+  # use a simple theme
+  theme_minimal() +
+  
+  # add boxes around panels so they are more easily distinguishable
+  theme(panel.border = element_rect(linewidth = 2, fill = "transparent")) +
+  
+  # add a title
+  labs(title = "Relationship between Child Poverty and No Vehicle/Low Store Access")
+  
+metro_access_chpov_scatter
+
+```
+
+While the relationship remains variable for metro areas (Pearson's correlation coefficient  = `r round(metro_correlation, 3)`), there does appear to be a stronger correlation than in non-metro areas (Pearson's correlation coefficient  = `r round(non_metro_correlation, 3)`).
 
 
 
