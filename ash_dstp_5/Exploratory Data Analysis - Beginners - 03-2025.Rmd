@@ -368,9 +368,9 @@ While the relationship remains variable for metro areas (Pearson's correlation c
 
 # BONUS
 
-I live in North Carolina, so I'm interested in exploring child poverty rate patterns across the state. 
+I live in North Carolina, so I'm interested in exploring child poverty rate patterns across the state. The histogram and mean/median values show that child poverty rates in NC are higher than the national averages. A suite of lacking social support systems, cost of living, wages, etc. are likely contributors.  
 
-```{r bonus, warning=FALSE, message = FALSE}
+```{r bonus_1, warning=FALSE, message = FALSE}
 
 # to start, create separate dataframe for NC
 nc_df <- food_env_full %>% 
@@ -422,8 +422,46 @@ nc_childpovrate15_hist/childpovrate15_hist
 ```
 
 
+Below is the code to explore the correlation for counties within NC and the scatterplot with a linear regression line. 
+
+```{r bonus_2, warning=FALSE, message = FALSE}
+# calculate the correlation by specifying the two variables and Pearson as function inputs
+nc_correlation <- cor(nc_df$PCT_LACCESS_HHNV15,
+                      nc_df$CHILDPOVRATE15,
+                      method = 'pearson')
+
+nc_correlation
 
 
+
+# generate and view the scatterplot using the full dataset and the previously generated labeller
+nc_access_chpov_scatter <- ggplot() +
+  
+  # generate the points with access on the x-axis and child poverty on the y
+  geom_point(aes(x = PCT_LACCESS_HHNV15,
+                 y = CHILDPOVRATE15),
+             data = nc_df) +
+  
+  # add the regression line
+  geom_smooth(aes(x = PCT_LACCESS_HHNV15,
+                  y = CHILDPOVRATE15),
+              method='lm', 
+              data = nc_df) +
+  
+  # use a simple theme
+  theme_minimal() +
+  
+  # add boxes around panels so they are more easily distinguishable
+  theme(panel.border = element_rect(linewidth = 2, fill = "transparent")) +
+  
+  # add a title
+  labs(title = "Relationship between NC Child Poverty and No Vehicle/Low Store Access")
+  
+nc_access_chpov_scatter
+
+```
+
+Looking at the correlation between `PCT_LACCESS_HHNV15` and `CHILDPOVRATE15`, we see a stronger relationship between these variables than in the national analyses (Pearson's correlation coefficient for NC = `r round(nc_correlation, 3)`). While again, there is variability in the scatterplot, the positive relationship betweent these two variables is more apparent. The regression line fit to these data shows this positive relationship. 
 
 
 
