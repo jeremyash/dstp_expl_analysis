@@ -10,23 +10,11 @@ output:
 ---
 
 ```{r setup, message=FALSE, warning=FALSE, include=FALSE}
+
 # packages
 library(tidyverse)
-# library(dplyr)
-# library(httr)
-# library(moments)
-# library(scales)
-# library(ggplot2)
-# library(ggpp)
-# library(readxl)
-# library(expss)
-# library(sf)
-# library(httr)
-# library(purrr)
-# library(extrafont)
 library(patchwork)
-# library(scico)
-# library(psych)
+
 ```
 
 # Part A: Load and inspect the data
@@ -50,7 +38,7 @@ food_env <- read_csv("EDA_assignment_dataset.csv")
 ```
 ## A.2: Summary statistics
 
-Next, we explore the basic summary statistics for each column. A quick way to do this is to use the `summary()` function. If we wwere interested in particular summary statistics, we can also create a new dataframe with summary measures using `tidyverse` functions. 
+Next, we explore the basic summary statistics for each column. A quick way to do this is to use the `summary()` function. If we were interested in particular summary statistics, we can also create a new dataframe with summary measures using `tidyverse` functions. 
 
 ```{r part_a_2, warning=FALSE, messages = FALSE}
 
@@ -73,7 +61,7 @@ childpovrate15_summary
 
 ## A.3: Exclude NA values
 
-We see above that there are various amounts of `NA` values in each column. To continue with an analysis focused only on complete cases, we next create a dataset that excludes any rows with NA values.
+We see above that there are various amounts of `NA` values in each column. To continue with an analysis focused only on complete cases, we next create a dataset that excludes any rows with `NA` values.
 
 ```{r part_a_3, warning=FALSE, message = FALSE}
 
@@ -90,7 +78,7 @@ food_env_full_n <- dim(food_env_full)[1]
 food_env_full_n
 ```
 
-Above, we can see the difference in the number of rows of each dataframe is 29. In case this hasn't been shown before, you can also use inline code in Rmd files, so we could say that in the original dataset, there were `r food_env_n` observations. After excluding `NA` values, there are `r food_env_full_n` observations. 
+Above, we can see the difference in the number of rows of each dataframe is 29. In case this hasn't been shown before, you can also use inline code in `Rmd` files (look at `Rmd` file to see how this looks in code), so we could say that in the original dataset, there were `r food_env_n` observations. After excluding `NA` values, there are `r food_env_full_n` observations. 
 
 
 # Part B: Explore child poverty rates
@@ -112,6 +100,7 @@ childpovrate15_lines <- childpovrate15_summary %>%
 
 # using ggplot2, we can create the histogram
 childpovrate15_hist <- ggplot() +
+  
   # create histogram of values
   geom_histogram(aes(x = CHILDPOVRATE15), 
                  data = food_env_full) + 
@@ -145,7 +134,7 @@ Before we investigate correlative relationships, let's look at the distribution 
 
 ## C.1: Basic distribution
 
-Below is a histogram and boxplot showing the overall distribution of the variable `PCT_LACCESS_HHNV15`. We can see in the histogram a long tail to the right, showing that a low number counties have a high percentage households with no car and low access to stores. This is confirmed looking at the boxplot, where we see a number of points falling to the right of the "upper whisker". 
+Below is a histogram and boxplot showing the overall distribution of the variable `PCT_LACCESS_HHNV15`. We can see in the histogram a long tail to the right, showing that there are some counties with a high percentage of households with no car and low access to stores. This is confirmed looking at the boxplot, where we see a number of points falling to the right of the "upper whisker". 
 
 ```{r part_c_1, warning=FALSE, message = FALSE}
 
@@ -163,7 +152,8 @@ pct_lacess_hhnv15_lines <- food_env_full %>%
 
 # using ggplot2, we can create the histogram
 pct_lacess_hhnv15_hist <- ggplot() +
-  # create histogram of values
+ 
+   # create histogram of values
   geom_histogram(aes(x = PCT_LACCESS_HHNV15), 
                  data = food_env_full) + 
   
@@ -176,7 +166,7 @@ pct_lacess_hhnv15_hist <- ggplot() +
   theme_minimal() +
   
   # add a title
-  labs(title = "Distribution of Percentage of Households with No Vehicle and Low Store Access")
+  labs(title = "Distribution of Percentage of Households with No Vehicle/Low Store Access")
 
 
 # display the histogram
@@ -185,6 +175,7 @@ pct_lacess_hhnv15_hist
 
 # similarly, using ggplot2, we can create the boxplot
 pct_lacess_hhnv15_boxplot <- ggplot() +
+  
   # create boxplot of values
   geom_boxplot(aes(x = PCT_LACCESS_HHNV15), 
                  data = food_env_full) + 
@@ -193,7 +184,7 @@ pct_lacess_hhnv15_boxplot <- ggplot() +
   theme_minimal() +
   
   # add a title
-  labs(title = "Distribution of Percentage of Households with No Vehicle and Low Store Access")
+  labs(title = "Distribution of Percentage of Households with No Vehicle/Low Store Access")
 
 
 # display the histogram
@@ -204,7 +195,7 @@ pct_lacess_hhnv15_boxplot
 
 ## C.2: Access by metro/non-metro status
 
-Adding more detail to our exploratory analysis, we will now look at whether the distribution of `PCT_LACCESS_HHNV15` differs between metro and non-metro areas. It's not obvious to me what the differences are by looking at the histogram but the differences are clearer looking at the boxplots. Here we can see that households in non-metro areas are more likley to have no vehicle and lower access to stores, as you might expect.
+Adding more detail to our exploratory analysis, we will now look at whether the distribution of `PCT_LACCESS_HHNV15` differs between metro and non-metro areas. It's not obvious to me what the differences are by looking at the histogram, but the differences are clearer looking at the boxplots. Here we can see that households in non-metro areas are more likely to have no vehicle and lower access to stores, as you might expect.
 
 ```{r part_c_2, warning=FALSE, message = FALSE}
 
@@ -216,6 +207,7 @@ metro_labeller <- c(
 
 # using ggplot2, we can create the histogram
 pct_lacess_metro_hist <- ggplot() +
+  
   # create histogram of values 
   geom_histogram(aes(x = PCT_LACCESS_HHNV15), 
                  data = food_env_full) + 
@@ -230,7 +222,7 @@ pct_lacess_metro_hist <- ggplot() +
   theme_minimal() +
   
   # add a title
-  labs(title = "Distribution of Percentage of Households with No Vehicle and Low Store Access")
+  labs(title = "Distribution of Percentage of Households with No Vehicle/Low Store Access")
 
 # display the faceted histogram
 pct_lacess_metro_hist
@@ -238,6 +230,7 @@ pct_lacess_metro_hist
 
 # using ggplot2, we can create the faceted boxplot
 pct_lacess_metro_boxplot <- ggplot() +
+  
   # create boxplot of values 
   geom_boxplot(aes(x = PCT_LACCESS_HHNV15), 
                  data = food_env_full) + 
@@ -252,7 +245,7 @@ pct_lacess_metro_boxplot <- ggplot() +
   theme_minimal() +
   
   # add a title
-  labs(title = "Distribution of Percentage of Households with No Vehicle and Low Store Access")
+  labs(title = "Distribution of Percentage of Households with No Vehicle/Low Store Access")
 
 # display the faceted boxplot
 pct_lacess_metro_boxplot
@@ -300,7 +293,7 @@ access_chpov_scatter
 
 ## D.2: Interpretation of initial results
 
-From the scatterplot, we can see evidence of some relationship between the percent of households with no vehicle and low store access (higher values on the x axis) and child poverty rates. That being said, there is a lot of variability in the data (focusing here on the data with `PCT_LACCESS_HHNV15 < 20`) and counties with high percentages of household without vehicles and store access (`PCT_LACCESS_HHNV15 > 20`) experience moderate rates of child poverty. The Pearson's correlation coefficent (`r round(correlation, 3)`) confirms this, as it shows a moderate linear relationship between the two variables. One other factor not captured in this dataset is access and availability of public transit in the county. 
+From the scatterplot, we can see evidence of some relationship between the percent of households with no vehicle and low store access (higher values on the x axis) and child poverty rates. That being said, there is a lot of variability in the data (focusing here on the data with `PCT_LACCESS_HHNV15 < 20`) and counties with high percentages of household without vehicles and store access (`PCT_LACCESS_HHNV15 > 20`) experience moderate rates of child poverty. The Pearson's correlation coefficient (`r round(correlation, 3)`) confirms this, as it shows a moderate, positive linear relationship between the two variables. It's clear, however, that the relationship is not strongly predictive. One other factor not captured in this dataset that might explain more of the variability is access and availability of public transit in the county. 
 
 
 
